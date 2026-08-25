@@ -44,6 +44,8 @@ RevenueRadar watches all three surfaces continuously, scores every detected even
 <img src="docs/architecture.png" alt="RevenueRadar architecture" width="820" />
 </div>
 
+> An editable version of this diagram lives at [`docs/architecture.excalidraw`](docs/architecture.excalidraw) — open it in [Excalidraw](https://excalidraw.com) (Open → File) or the Excalidraw VS Code extension for the interactive version.
+
 ---
 
 ## Tech Stack
