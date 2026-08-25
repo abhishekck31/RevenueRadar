@@ -44,7 +44,78 @@ RevenueRadar watches all three surfaces continuously, scores every detected even
 <img src="docs/architecture.png" alt="RevenueRadar architecture" width="820" />
 </div>
 
-> An editable version of this diagram lives at [`docs/architecture.excalidraw`](docs/architecture.excalidraw) — open it in [Excalidraw](https://excalidraw.com) (Open → File) or the Excalidraw VS Code extension for the interactive version.
+An editable version of this diagram lives at [`docs/architecture.mmd`](docs/architecture.mmd). Paste it into [Excalidraw](https://excalidraw.com)'s Mermaid-to-Excalidraw tool (the diagram icon in the left toolbar) to get a fully editable native Excalidraw version:
+
+```mermaid
+flowchart TD
+    subgraph Frontend["Frontend"]
+        Dashboard["Dashboard (Next.js)<br/>live metrics · audit log · agent status"]
+        Simulator["Webhook Simulator<br/>fire test events · demo mode"]
+    end
+
+    subgraph Backend["Backend"]
+        API["Express API<br/>REST · WebSocket · auth"]
+        Receiver["Webhook Receiver<br/>Razorpay events → queue"]
+    end
+
+    Orchestrator["AI Orchestrator (Claude API)<br/>score rupee impact · pick agent · decide intervention"]
+
+    subgraph Agents["Agents"]
+        Payment["PaymentRetryAgent<br/>diagnose · retry · backoff"]
+        Checkout["CheckoutNudgeAgent<br/>detect · craft nudge · send"]
+        Invoice["InvoiceCollectorAgent<br/>follow-up · escalate · log"]
+    end
+
+    subgraph Notifications["Notifications"]
+        Razorpay["Razorpay API"]
+        Mailer["Nodemailer"]
+        Twilio["Twilio WhatsApp"]
+        AuditLog["Audit logger"]
+    end
+
+    subgraph Infra["Infrastructure"]
+        Postgres["PostgreSQL<br/>audit trail · events"]
+        Redis["Redis + BullMQ<br/>queues · scheduling"]
+        Prisma["Prisma ORM<br/>schema · migrations"]
+    end
+
+    Dashboard --> API
+    Simulator --> Receiver
+    API --> Receiver
+    API --> Orchestrator
+    Receiver --> Orchestrator
+
+    Orchestrator --> Payment
+    Orchestrator --> Checkout
+    Orchestrator --> Invoice
+
+    Payment --> Razorpay
+    Checkout --> Mailer
+    Checkout --> Twilio
+    Invoice --> AuditLog
+
+    Payment -.-> Redis
+    Checkout -.-> Redis
+    Invoice -.-> Redis
+    Redis -.-> Postgres
+    Redis -.-> Prisma
+
+    classDef frontend fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#0F6E56;
+    classDef backend fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#185FA5;
+    classDef orch fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#534AB7;
+    classDef payment fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#185FA5;
+    classDef checkout fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#993C1D;
+    classDef invoice fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#0F6E56;
+    classDef infra fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#5F5E5A;
+
+    class Dashboard,Simulator frontend;
+    class API,Receiver backend;
+    class Orchestrator orch;
+    class Payment payment;
+    class Checkout checkout;
+    class Invoice invoice;
+    class Razorpay,Mailer,Twilio,AuditLog,Postgres,Redis,Prisma infra;
+```
 
 ---
 
