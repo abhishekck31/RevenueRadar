@@ -1,0 +1,22 @@
+{
+  "name": "revenue-radar",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "db:push": "turbo run db:push",
+    "db:generate": "turbo run db:generate",
+    "db:studio": "prisma studio --schema=prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

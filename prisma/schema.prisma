@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LeakageEvent {
+  id              String       @id @default(cuid())
+  type            String
+  merchantId      String
+  rupeeAmount     Float
+  customerId      String?
+  customerEmail   String?
+  customerPhone   String?
+  metadata        Json
+  rawPayload      Json
+  detectedAt      DateTime     @default(now())
+  auditEntries    AuditEntry[]
+}
+
+model AuditEntry {
+  id            String       @id @default(cuid())
+  eventId       String
+  event         LeakageEvent @relation(fields: [eventId], references: [id])
+  agentType     String
+  actionTaken   String
+  reasoning     String
+  rupeeAtRisk   Float
+  status        String
+  outcome       String?
+  outcomeDetail String?
+  executedAt    DateTime     @default(now())
+  completedAt   DateTime?
+}
+
+model RecoveryMetric {
+  id                 String   @id @default(cuid())
+  date               DateTime @default(now())
+  totalAtRisk        Float
+  totalRecovered     Float
+  paymentRetried     Int
+  nudgesSent         Int
+  invoicesFollowedUp Int
+  recoveryRate       Float
+}
