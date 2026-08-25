@@ -1,141 +1,152 @@
 <div align="center">
 
-<img src="https://razorpay.com/favicon.ico" width="48" height="48" alt="Razorpay Logo" />
+<img src="https://razorpay.com/favicon.ico" width="40" height="40" alt="Razorpay" />
 
 # RevenueRadar
 
-**Multi-Agent AI Revenue Recovery System**
+**Multi-agent AI system for revenue leakage detection and recovery**
 
-<p align="center">
-  <a href="#how-it-works">How it works</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#getting-started">Getting Started</a>
-</p>
+[Overview](#overview) · [How It Works](#how-it-works) · [Architecture](#architecture) · [Tech Stack](#tech-stack) · [Project Structure](#project-structure) · [Getting Started](#getting-started) · [Safety Bounds](#safety-bounds)
 
-[![Built for Razorpay AI Buildathon 2026](https://img.shields.io/badge/Razorpay-AI_Buildathon_2026-0D1117?style=flat-square&logo=razorpay&logoColor=028FFF&labelColor=1A1A2E)](https://razorpay.com/buildathon/)
-[![Track: AI Revenue Recovery](https://img.shields.io/badge/Track-AI_Revenue_Recovery-028FFF?style=flat-square&labelColor=0D1117)](https://github.com/abhishekck31/RevenueRadar)
-[![License: MIT](https://img.shields.io/badge/License-MIT-00C970?style=flat-square&labelColor=0D1117)](https://opensource.org/licenses/MIT)
-
-*Revenue doesn't just vanish in one step — it **leaks**. A payment degrades, a checkout gets abandoned, an invoice goes overdue. RevenueRadar watches all three surfaces simultaneously, scores every leak by rupee impact, and dispatches the right recovery agent automatically.*
+Built for the Razorpay AI Buildathon.
 
 </div>
 
 ---
 
-## ⚡ The Three Surfaces
+## Overview
 
-Most recovery tools solve one problem. **RevenueRadar solves all three.**
+Revenue rarely disappears in one step — it leaks, across several surfaces at once. A card payment fails silently. A checkout is abandoned before the last step. An invoice goes unpaid for weeks. Handled separately, each of these is a minor operational task. Left unmonitored, together they compound into real, ongoing revenue loss.
 
-| Surface | The Problem | The Agent |
-| :--- | :--- | :--- |
-| 💳 **Failed Payments** | Subscriptions degrading silently due to temporary card issues or network errors. | `PaymentRetryAgent` |
-| 🛒 **Abandoned Checkouts** | 60–70% of users drop off before completing the payment process. | `CheckoutNudgeAgent` |
-| 📄 **Overdue Invoices** | B2B payments sitting unpaid for weeks, affecting cash flow. | `InvoiceCollectorAgent` |
+RevenueRadar watches all three surfaces continuously, scores every detected event by rupee impact and recovery probability, and dispatches a purpose-built recovery agent for each case — within strict, auditable limits.
 
----
-
-## 🧠 How It Works
-
-1. **Detect**: Webhooks stream every `payment.failed`, `checkout.abandoned`, and `invoice.overdue` event into the ingestion layer.
-2. **Triage**: The **AI Orchestrator** scores each event based on rupee value at risk, recovery probability, and time sensitivity. High-impact events are prioritized.
-3. **Dispatch**: The appropriate sub-agent deploys with strictly bounded permissions (max retries, cooldown windows, human escalation triggers).
-4. **Recover**: Agents execute context-aware recovery workflows via Razorpay test-mode APIs.
-5. **Audit**: Every single decision is logged into a Unified Audit Trail (detected → triaged → acted → outcome).
+| Surface | Problem | Recovery Agent |
+| --- | --- | --- |
+| Failed Payments | Recurring or one-time payments failing due to transient card or network issues | `PaymentRetryAgent` |
+| Abandoned Checkouts | Customers dropping off before completing checkout | `CheckoutNudgeAgent` |
+| Overdue Invoices | B2B invoices going unpaid past their due date | `InvoiceCollectorAgent` |
 
 ---
 
-## 🏗️ Architecture
+## How It Works
 
-```mermaid
-graph TD
-    A[Razorpay Webhooks] -->|payment.failed\ncheckout.abandoned\ninvoice.overdue| B(Event Ingestion)
-    B -->|Normalise, Enrich, Queue| C{AI Orchestrator}
-    
-    C -->|Score Impact & Dispatch| D[PaymentRetryAgent]
-    C -->|Score Impact & Dispatch| E[CheckoutNudgeAgent]
-    C -->|Score Impact & Dispatch| F[InvoiceCollectorAgent]
-    
-    D --> G[(Unified Audit Trail)]
-    E --> G
-    F --> G
-    
-    G --> H[Analytics & Reporting]
-    
-    style A fill:#028FFF,stroke:#fff,stroke-width:2px,color:#fff
-    style C fill:#1A1A2E,stroke:#028FFF,stroke-width:2px,color:#fff
-    style D fill:#0078FF,stroke:#fff,stroke-width:2px,color:#fff
-    style E fill:#FF6B35,stroke:#fff,stroke-width:2px,color:#fff
-    style F fill:#00C970,stroke:#fff,stroke-width:2px,color:#fff
+1. **Detect** — Razorpay webhooks for `payment.failed`, checkout abandonment, and invoice overdue events are received, verified, and normalized into a common `LeakageEvent` type.
+2. **Triage** — An AI orchestrator, backed by the Claude API, scores each event by rupee amount at risk, recovery probability, and time decay, then selects the appropriate recovery agent.
+3. **Dispatch** — The selected agent acts under hard-coded stopping rules: capped retry counts, cooldown windows, and a minimum confidence threshold below which the event is escalated to a human instead of acted on.
+4. **Recover** — Agents execute recovery actions against Razorpay test-mode APIs and send customer notifications by email or WhatsApp.
+5. **Audit** — Every decision and action is written to an immutable audit trail before execution, giving a full record of what was detected, why an action was chosen, and what happened.
+
+---
+
+## Architecture
+
+<div align="center">
+<img src="docs/architecture.png" alt="RevenueRadar architecture" width="820" />
+</div>
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Runtime | Node.js 20, TypeScript (strict mode) |
+| Backend | Express.js |
+| AI Orchestrator | Claude API |
+| Queueing | BullMQ, backed by Redis |
+| Database | PostgreSQL, accessed via Prisma ORM |
+| Notifications | Nodemailer (email), Twilio (WhatsApp) |
+| Frontend | Next.js (App Router), Tailwind CSS |
+| Payments | Razorpay test-mode APIs |
+| Validation | Zod |
+| Logging | Winston |
+
+---
+
+## Project Structure
+
+```
+revenue-radar/
+├── apps/
+│   ├── api/            Express backend, orchestrator, and agents
+│   │   └── src/
+│   │       ├── agents/         PaymentRetryAgent, CheckoutNudgeAgent, InvoiceCollectorAgent
+│   │       ├── orchestrator/   Claude-driven event triage
+│   │       ├── queues/         BullMQ queue and worker definitions
+│   │       ├── routes/         Webhook receiver, events, audit endpoints
+│   │       ├── services/       Razorpay, notification, and audit services
+│   │       ├── middleware/
+│   │       └── config/
+│   └── web/             Next.js dashboard
+│       └── app/
+│           ├── page.tsx         Overview
+│           ├── events/          Live event feed
+│           ├── audit/           Audit trail
+│           └── simulate/        Webhook simulator
+├── packages/
+│   └── shared/          Shared types and constants
+├── prisma/
+│   └── schema.prisma
+├── docker-compose.yml
+└── .env.example
 ```
 
 ---
 
-## 🛠️ Tech Stack
-
-- **Runtime Environment:** [Node.js](https://nodejs.org/)
-- **Job Scheduling & Queues:** [BullMQ](https://docs.bullmq.io/) backed by [Redis](https://redis.io/)
-- **Webhook Server:** [Express.js](https://expressjs.com/)
-- **AI Orchestrator:** Claude API (`claude-3-5-sonnet-20241022`)
-- **Payments Integration:** [Razorpay Test-Mode APIs](https://razorpay.com/docs/api/)
-- **Audit Data Store:** [PostgreSQL](https://www.postgresql.org/)
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- Redis Server running locally or via Docker
-- PostgreSQL database
-- Razorpay Test Mode Account
-- Anthropic API Key
+- Node.js 20 or higher
+- Docker (for PostgreSQL and Redis)
+- A Razorpay test-mode account
+- An Anthropic API key
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/abhishekck31/revenue-radar.git
-   cd revenue-radar
-   ```
+```bash
+git clone https://github.com/abhishekck31/RevenueRadar.git
+cd RevenueRadar
+npm install
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### Configure environment
 
-3. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   *Edit `.env` and add your `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `ANTHROPIC_API_KEY`.*
+```bash
+cp .env.example .env
+```
 
-4. **Start the services**
-   ```bash
-   # Ensure Redis and Postgres are running, then:
-   npm run dev
-   ```
+Fill in `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, and the notification (SMTP, Twilio) credentials.
+
+### Start infrastructure
+
+```bash
+docker compose up -d
+npm run db:push
+```
+
+### Run the app
+
+```bash
+npm run dev
+```
+
+The API starts on `localhost:3001`, the dashboard on `localhost:3000`.
 
 ---
 
-## 🔐 Safety & Bounds
+## Safety Bounds
 
-RevenueRadar is built with strict guardrails to prevent accidental charges or customer spam:
+RevenueRadar's agents operate under fixed limits that cannot be bypassed at runtime:
 
-- **Max 3 retries** per failed payment, employing exponential backoff.
-- **Cooldown periods** enforced between checkout nudges.
-- **Confidence thresholds** built into the AI logic; low-confidence scenarios always escalate to a human operator.
-- **No double-charging** safeguards on every payment action.
-- **Full audit logs** recorded before any action executes.
+- `PaymentRetryAgent` — maximum 3 retries per payment, minimum 30 minutes between attempts
+- `CheckoutNudgeAgent` — maximum 2 nudges per abandoned checkout, 2-hour cooldown
+- `InvoiceCollectorAgent` — maximum 5 follow-ups, escalates to a human after 3 unanswered
+- Any triage decision with confidence below 0.6 is escalated to a human rather than executed
+- Every action is written to the audit trail before it runs
 
 ---
 
 <div align="center">
-  <p><sub>Most tools solve one leak. <b>RevenueRadar maps the whole pipe.</b></sub></p>
-  <p>
-    <a href="https://github.com/abhishekck31/RevenueRadar/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/abhishekck31/RevenueRadar/issues">Request Feature</a>
-  </p>
+<sub>Most tools solve one leak. RevenueRadar maps the whole pipe.</sub>
 </div>
