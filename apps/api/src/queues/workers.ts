@@ -1,16 +1,28 @@
-import { Worker } from 'bullmq'
+import { Worker, Job } from 'bullmq'
+import type { LeakageEvent } from '@revenue-radar/shared'
 import { QUEUE_NAMES } from '@revenue-radar/shared'
-import { connection } from './index'
+import { connection, agentActionsQueue } from './index'
 import { logger } from '../lib/logger'
+import { triage } from '../orchestrator'
 
-export function registerWorkers(): Worker[] {
+export function startWorkers(): void {
   const leakageEventsWorker = new Worker(
     QUEUE_NAMES.LEAKAGE_EVENTS,
-    async (job) => {
-      logger.info(`[worker:leakage-events:stub] processing job ${job.id}`)
+    async (job: Job<LeakageEvent>) => {
+      const event = job.data
+      logger.info(`Processing leakage event: ${event.type} for ₹${event.rupeeAmount}`)
+
+      const triageResult = await triage(event)
+      logger.info(`[orchestrator] triage result: ${JSON.stringify(triageResult)}`)
+
+      await agentActionsQueue.add('agent-action', { event, triageResult }, { jobId: `${event.id}-action` })
     },
     { connection }
   )
+
+  leakageEventsWorker.on('failed', (job, err) => {
+    logger.error(`[worker:leakage-events] job ${job?.id} failed: ${err.message}`)
+  })
 
   const agentActionsWorker = new Worker(
     QUEUE_NAMES.AGENT_ACTIONS,
@@ -20,21 +32,9 @@ export function registerWorkers(): Worker[] {
     { connection }
   )
 
-  const notificationsWorker = new Worker(
-    QUEUE_NAMES.NOTIFICATIONS,
-    async (job) => {
-      logger.info(`[worker:notifications:stub] processing job ${job.id}`)
-    },
-    { connection }
-  )
+  agentActionsWorker.on('failed', (job, err) => {
+    logger.error(`[worker:agent-actions] job ${job?.id} failed: ${err.message}`)
+  })
 
-  const auditWorker = new Worker(
-    QUEUE_NAMES.AUDIT,
-    async (job) => {
-      logger.info(`[worker:audit:stub] processing job ${job.id}`)
-    },
-    { connection }
-  )
-
-  return [leakageEventsWorker, agentActionsWorker, notificationsWorker, auditWorker]
+  logger.info('Workers started')
 }

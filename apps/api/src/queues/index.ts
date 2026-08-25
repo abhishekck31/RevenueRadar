@@ -5,7 +5,16 @@ import { env } from '../config/env'
 
 export const connection = new IORedis(env.REDIS_URL, { maxRetriesPerRequest: null })
 
-export const leakageEventsQueue = new Queue(QUEUE_NAMES.LEAKAGE_EVENTS, { connection })
-export const agentActionsQueue = new Queue(QUEUE_NAMES.AGENT_ACTIONS, { connection })
-export const notificationsQueue = new Queue(QUEUE_NAMES.NOTIFICATIONS, { connection })
-export const auditQueue = new Queue(QUEUE_NAMES.AUDIT, { connection })
+const defaultJobOptions = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 50
+}
+
+const queueOpts = { connection, defaultJobOptions }
+
+export const leakageEventsQueue = new Queue(QUEUE_NAMES.LEAKAGE_EVENTS, queueOpts)
+export const agentActionsQueue = new Queue(QUEUE_NAMES.AGENT_ACTIONS, queueOpts)
+export const notificationsQueue = new Queue(QUEUE_NAMES.NOTIFICATIONS, queueOpts)
+export const auditQueue = new Queue(QUEUE_NAMES.AUDIT, queueOpts)

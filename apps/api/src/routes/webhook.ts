@@ -1,56 +1,71 @@
-import { Router } from 'express'
-import type { LeakageEvent, LeakageType } from '@revenue-radar/shared'
+import express, { Router, Request, Response } from 'express'
+import type { Prisma } from '@prisma/client'
 import { validateWebhookSignature } from '../services/razorpay'
+import { normalizeWebhookEvent } from '../normalizer'
 import { leakageEventsQueue } from '../queues'
 import { logger } from '../lib/logger'
+import { prisma } from '../lib/prisma'
 
 export const webhookRouter = Router()
 
-const EVENT_TYPE_MAP: Record<string, LeakageType> = {
-  'payment.failed': 'PAYMENT_FAILED',
-  'order.checkout.abandoned': 'CHECKOUT_ABANDONED',
-  'invoice.overdue': 'INVOICE_OVERDUE'
-}
+webhookRouter.post('/razorpay', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+  const signature = req.headers['x-razorpay-signature']
+  const rawBody = (req.body as Buffer).toString('utf8')
 
-webhookRouter.post('/razorpay', async (req, res, next) => {
+  if (typeof signature !== 'string' || !validateWebhookSignature(rawBody, signature)) {
+    logger.warn('[webhook] rejected event: invalid signature')
+    res.status(400).json({ error: 'Invalid webhook signature' })
+    return
+  }
+
+  let body: Record<string, unknown>
   try {
-    const signature = req.headers['x-razorpay-signature']
-    const rawBody = JSON.stringify(req.body)
+    body = JSON.parse(rawBody)
+  } catch {
+    res.status(400).json({ error: 'Invalid JSON payload' })
+    return
+  }
 
-    if (typeof signature !== 'string' || !validateWebhookSignature(rawBody, signature)) {
-      res.status(400).json({ error: 'Invalid webhook signature' })
-      return
-    }
+  const eventName = typeof body.event === 'string' ? body.event : undefined
+  logger.info(`[webhook] received event: ${eventName ?? 'unknown'}`)
 
-    const razorpayEventType: string | undefined = req.body?.event
-    const leakageType = razorpayEventType ? EVENT_TYPE_MAP[razorpayEventType] : undefined
+  if (!eventName) {
+    res.status(200).json({ status: 'ignored' })
+    return
+  }
 
-    if (!leakageType) {
-      logger.warn(`[webhook] unrecognized event type: ${razorpayEventType}`)
-      res.status(202).json({ status: 'ignored' })
-      return
-    }
+  const merchantId = typeof body.account_id === 'string' ? body.account_id : 'unknown'
+  const payload = (body.payload as Record<string, unknown>) ?? {}
 
-    const payload = req.body.payload ?? {}
-    const entity = payload.payment?.entity ?? payload.order?.entity ?? payload.invoice?.entity ?? {}
+  const event = normalizeWebhookEvent(eventName, payload, merchantId)
 
-    const normalizedEvent: LeakageEvent = {
-      id: entity.id ?? `evt_${Date.now()}`,
-      type: leakageType,
-      merchantId: entity.merchant_id ?? 'unknown',
-      rupeeAmount: entity.amount ? entity.amount / 100 : 0,
-      customerId: entity.customer_id,
-      customerEmail: entity.email,
-      customerPhone: entity.contact,
-      metadata: {},
-      detectedAt: new Date(),
-      rawWebhookPayload: req.body
-    }
+  if (!event) {
+    logger.info(`[webhook] event type not handled: ${eventName}`)
+    res.status(200).json({ status: 'ignored' })
+    return
+  }
 
-    await leakageEventsQueue.add('leakage-event', normalizedEvent)
+  try {
+    await prisma.leakageEvent.create({
+      data: {
+        id: event.id,
+        type: event.type,
+        merchantId: event.merchantId,
+        rupeeAmount: event.rupeeAmount,
+        customerId: event.customerId,
+        customerEmail: event.customerEmail,
+        customerPhone: event.customerPhone,
+        metadata: event.metadata as Prisma.InputJsonValue,
+        rawPayload: event.rawWebhookPayload as Prisma.InputJsonValue,
+        detectedAt: event.detectedAt
+      }
+    })
 
-    res.status(202).json({ status: 'queued', eventId: normalizedEvent.id })
+    await leakageEventsQueue.add('leakage-event', event, { jobId: event.id })
+
+    res.status(200).json({ status: 'queued', eventId: event.id })
   } catch (err) {
-    next(err)
+    logger.error(err instanceof Error ? err : new Error(String(err)))
+    res.status(500).json({ error: 'Failed to process webhook event' })
   }
 })

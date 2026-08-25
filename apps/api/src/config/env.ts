@@ -1,4 +1,8 @@
+import path from 'path'
+import dotenv from 'dotenv'
 import { z } from 'zod'
+
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') })
 
 const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1),
