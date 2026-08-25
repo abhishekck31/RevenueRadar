@@ -1,10 +1,18 @@
 import { Worker, Job } from 'bullmq'
-import type { LeakageEvent } from '@revenue-radar/shared'
+import type { Server as SocketIOServer } from 'socket.io'
+import type { LeakageEvent, TriageResult } from '@revenue-radar/shared'
 import { QUEUE_NAMES, STOPPING_RULES } from '@revenue-radar/shared'
 import { connection, agentActionsQueue } from './index'
 import { logger } from '../lib/logger'
 import { triage } from '../orchestrator'
-import { createTriageAudit } from '../services/audit'
+import { createTriageAudit, recordDailyMetric } from '../services/audit'
+import { dispatchAgent } from '../agents/dispatcher'
+
+let io: SocketIOServer | undefined
+
+export function setSocketIO(instance: SocketIOServer): void {
+  io = instance
+}
 
 export function startWorkers(): void {
   const leakageEventsWorker = new Worker(
@@ -45,8 +53,18 @@ export function startWorkers(): void {
 
   const agentActionsWorker = new Worker(
     QUEUE_NAMES.AGENT_ACTIONS,
-    async (job) => {
-      logger.info(`[worker:agent-actions:stub] processing job ${job.id}`)
+    async (job: Job<{ event: LeakageEvent; triageResult: TriageResult }>) => {
+      const rawEvent = job.data.event
+      const event: LeakageEvent = { ...rawEvent, detectedAt: new Date(rawEvent.detectedAt) }
+      const triageResult = job.data.triageResult
+
+      const outcome = await dispatchAgent(event, triageResult)
+
+      logger.info(`Agent ${triageResult.agentType} completed: ${outcome} for ₹${event.rupeeAmount}`)
+
+      io?.emit('agent:completed', { event, triage: triageResult, outcome })
+
+      await recordDailyMetric(triageResult.agentType, event.rupeeAmount, outcome)
     },
     { connection }
   )

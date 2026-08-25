@@ -25,6 +25,8 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().min(1),
   TWILIO_WHATSAPP_FROM: z.string().min(1),
 
+  ALERT_EMAIL: z.string().email(),
+
   PORT: z.coerce.number().int().positive().default(3001),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   JWT_SECRET: z.string().min(1)

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { AgentType, LeakageEvent, TriageResult } from '@revenue-radar/shared'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
+import { extractJson } from '../lib/json'
 import { buildTriagePrompt } from './prompt-builder'
 import { validateTriageResponse } from './validator'
 
@@ -75,11 +76,6 @@ Always respond with ONLY valid JSON, no prose, no markdown:
   "suggestedRetryAt"?: string (ISO datetime, only for DELAYED_RETRY)
 }
 `
-
-function extractJson(text: string): unknown {
-  const stripped = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
-  return JSON.parse(stripped)
-}
 
 function fallbackResult(event: LeakageEvent): TriageResult {
   const agentType: AgentType =

@@ -11,7 +11,7 @@ import { webhookRouter } from './routes/webhook'
 import { eventsRouter } from './routes/events'
 import { auditRouter, metricsRouter } from './routes/audit'
 import { errorHandler } from './middleware/error-handler'
-import { startWorkers } from './queues/workers'
+import { startWorkers, setSocketIO } from './queues/workers'
 
 const app = express()
 const httpServer = createServer(app)
@@ -48,6 +48,7 @@ app.use('/api/metrics', metricsRouter)
 
 app.use(errorHandler)
 
+setSocketIO(io)
 startWorkers()
 
 httpServer.listen(env.PORT, () => {

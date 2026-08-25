@@ -1,9 +1,13 @@
-import type { ActionStatus, AgentType, AuditEntry, LeakageEvent, LeakageType, OutcomeType, TriageResult } from '@revenue-radar/shared'
+import type { ActionStatus, AgentType, AuditEntry, LeakageType, LeakageEvent, OutcomeType, TriageResult } from '@revenue-radar/shared'
 import { prisma } from '../lib/prisma'
 import { logger } from '../lib/logger'
 
-export async function createTriageAudit(event: LeakageEvent, triage: TriageResult, status: ActionStatus): Promise<void> {
-  await prisma.auditEntry.create({
+export async function createTriageAudit(
+  event: LeakageEvent,
+  triage: TriageResult,
+  status: ActionStatus
+): Promise<string> {
+  const entry = await prisma.auditEntry.create({
     data: {
       eventId: event.id,
       agentType: triage.agentType,
@@ -16,6 +20,8 @@ export async function createTriageAudit(event: LeakageEvent, triage: TriageResul
   })
 
   logger.info(`[audit] ${triage.agentType} -> ${triage.action} (${status})`)
+
+  return entry.id
 }
 
 // The original triage decision (agentType/actionTaken/reasoning) is written once and
@@ -128,4 +134,48 @@ export async function getRecoveryMetrics(): Promise<{
     byAgent,
     recentEvents
   }
+}
+
+// Rolls the outcome of one agent action into today's RecoveryMetric row —
+// a same-day upsert, since `date` has no unique constraint to key a real upsert on.
+export async function recordDailyMetric(agentType: AgentType, rupeeAmount: number, outcome: OutcomeType): Promise<void> {
+  const now = new Date()
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfNextDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+
+  const recovered = outcome === 'RECOVERED' ? rupeeAmount : 0
+
+  const existing = await prisma.recoveryMetric.findFirst({
+    where: { date: { gte: startOfDay, lt: startOfNextDay } }
+  })
+
+  if (existing) {
+    const totalAtRisk = existing.totalAtRisk + rupeeAmount
+    const totalRecovered = existing.totalRecovered + recovered
+
+    await prisma.recoveryMetric.update({
+      where: { id: existing.id },
+      data: {
+        totalAtRisk,
+        totalRecovered,
+        paymentRetried: existing.paymentRetried + (agentType === 'PaymentRetryAgent' ? 1 : 0),
+        nudgesSent: existing.nudgesSent + (agentType === 'CheckoutNudgeAgent' ? 1 : 0),
+        invoicesFollowedUp: existing.invoicesFollowedUp + (agentType === 'InvoiceCollectorAgent' ? 1 : 0),
+        recoveryRate: totalAtRisk > 0 ? totalRecovered / totalAtRisk : 0
+      }
+    })
+    return
+  }
+
+  await prisma.recoveryMetric.create({
+    data: {
+      date: now,
+      totalAtRisk: rupeeAmount,
+      totalRecovered: recovered,
+      paymentRetried: agentType === 'PaymentRetryAgent' ? 1 : 0,
+      nudgesSent: agentType === 'CheckoutNudgeAgent' ? 1 : 0,
+      invoicesFollowedUp: agentType === 'InvoiceCollectorAgent' ? 1 : 0,
+      recoveryRate: rupeeAmount > 0 ? recovered / rupeeAmount : 0
+    }
+  })
 }
