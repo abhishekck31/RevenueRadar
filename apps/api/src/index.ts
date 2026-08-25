@@ -9,7 +9,7 @@ import { Server as SocketIOServer } from 'socket.io'
 import { logger } from './lib/logger'
 import { webhookRouter } from './routes/webhook'
 import { eventsRouter } from './routes/events'
-import { auditRouter } from './routes/audit'
+import { auditRouter, metricsRouter } from './routes/audit'
 import { errorHandler } from './middleware/error-handler'
 import { startWorkers } from './queues/workers'
 
@@ -44,6 +44,7 @@ app.use(express.json())
 
 app.use('/api/events', eventsRouter)
 app.use('/api/audit', auditRouter)
+app.use('/api/metrics', metricsRouter)
 
 app.use(errorHandler)
 

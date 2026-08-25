@@ -24,6 +24,9 @@ export interface TriageResult {
   reasoning: string
   rupeeAtRisk: number
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
+  recoveryProbability: number
+  score: number
+  suggestedRetryAt?: string
 }
 
 export interface AuditEntry {
