@@ -1,3 +1,4 @@
+%%{init: {"flowchart": {"curve": "basis"}, "themeVariables": {"fontSize": "16px", "fontFamily": "Trebuchet MS, Verdana, Arial, sans-serif", "clusterBkg": "#FAFAF7", "clusterBorder": "#B8B5AC", "edgeLabelBackground": "#ffffff", "lineColor": "#5A5A5A"}} }%%
 flowchart TD
     subgraph Frontend["Frontend"]
         Dashboard["Dashboard (Next.js)<br/>live metrics · audit log · agent status"]
@@ -51,13 +52,13 @@ flowchart TD
     Redis -.-> Postgres
     Redis -.-> Prisma
 
-    classDef frontend fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#0F6E56;
-    classDef backend fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#185FA5;
-    classDef orch fill:#EEEDFE,stroke:#534AB7,stroke-width:2px,color:#534AB7;
-    classDef payment fill:#E6F1FB,stroke:#185FA5,stroke-width:2px,color:#185FA5;
-    classDef checkout fill:#FAECE7,stroke:#993C1D,stroke-width:2px,color:#993C1D;
-    classDef invoice fill:#E1F5EE,stroke:#0F6E56,stroke-width:2px,color:#0F6E56;
-    classDef infra fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2px,color:#5F5E5A;
+    classDef frontend fill:#E1F5EE,stroke:#0F6E56,stroke-width:2.5px,color:#0A2E27,font-weight:bold;
+    classDef backend fill:#E6F1FB,stroke:#185FA5,stroke-width:2.5px,color:#0C2E4D,font-weight:bold;
+    classDef orch fill:#EEEDFE,stroke:#534AB7,stroke-width:2.5px,color:#241F5C,font-weight:bold;
+    classDef payment fill:#E6F1FB,stroke:#185FA5,stroke-width:2.5px,color:#0C2E4D,font-weight:bold;
+    classDef checkout fill:#FAECE7,stroke:#993C1D,stroke-width:2.5px,color:#4D1E0E,font-weight:bold;
+    classDef invoice fill:#E1F5EE,stroke:#0F6E56,stroke-width:2.5px,color:#0A2E27,font-weight:bold;
+    classDef infra fill:#F1EFE8,stroke:#5F5E5A,stroke-width:2.5px,color:#2B2A28,font-weight:bold;
 
     class Dashboard,Simulator frontend;
     class API,Receiver backend;
