@@ -22,6 +22,8 @@ export function startWorkers(): void {
       const event: LeakageEvent = { ...job.data, detectedAt: new Date(job.data.detectedAt) }
       logger.info(`Processing leakage event: ${event.type} for ₹${event.rupeeAmount}`)
 
+      io?.emit('event:detected', event)
+
       const triageResult = await triage(event)
       logger.info(`[orchestrator] triage result: ${JSON.stringify(triageResult)}`)
 
@@ -31,6 +33,11 @@ export function startWorkers(): void {
       if (shouldEscalate) {
         logger.info(`Escalating to human: ${triageResult.reasoning}`)
         await createTriageAudit(event, triageResult, 'ESCALATED')
+
+        // Escalation is a terminal outcome too — emit it so dashboards resolve the
+        // event instead of waiting on an agent:completed that will never arrive.
+        io?.emit('agent:completed', { event, triage: triageResult, outcome: 'ESCALATED' })
+        await recordDailyMetric(triageResult.agentType, event.rupeeAmount, 'ESCALATED')
         return
       }
 

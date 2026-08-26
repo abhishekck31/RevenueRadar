@@ -14,6 +14,9 @@ export async function createTriageAudit(
       actionTaken: triage.action,
       reasoning: triage.reasoning,
       rupeeAtRisk: triage.rupeeAtRisk,
+      confidence: triage.confidence,
+      triageScore: triage.score,
+      priority: triage.priority,
       status,
       executedAt: new Date()
     }
@@ -40,12 +43,23 @@ export async function updateAuditOutcome(
   logger.info(`[audit] ${auditId} outcome recorded: ${outcome}`)
 }
 
+export interface AuditEntryWithEvent extends AuditEntry {
+  event: {
+    id: string
+    merchantId: string
+    customerEmail?: string
+    customerPhone?: string
+    metadata: Record<string, unknown>
+    detectedAt: Date
+  }
+}
+
 export async function getAuditEntries(params: {
   page: number
   limit: number
   agentType?: string
   outcome?: string
-}): Promise<{ entries: AuditEntry[]; total: number }> {
+}): Promise<{ entries: AuditEntryWithEvent[]; total: number }> {
   const where = {
     ...(params.agentType ? { agentType: params.agentType } : {}),
     ...(params.outcome ? { outcome: params.outcome } : {})
@@ -62,7 +76,7 @@ export async function getAuditEntries(params: {
     prisma.auditEntry.count({ where })
   ])
 
-  const entries: AuditEntry[] = rows.map((row) => ({
+  const entries: AuditEntryWithEvent[] = rows.map((row) => ({
     id: row.id,
     eventId: row.eventId,
     eventType: row.event.type as LeakageType,
@@ -70,11 +84,22 @@ export async function getAuditEntries(params: {
     actionTaken: row.actionTaken,
     reasoning: row.reasoning,
     rupeeAtRisk: row.rupeeAtRisk,
+    confidence: row.confidence ?? undefined,
+    triageScore: row.triageScore ?? undefined,
+    priority: (row.priority ?? undefined) as 'HIGH' | 'MEDIUM' | 'LOW' | undefined,
     status: row.status as ActionStatus,
     outcome: (row.outcome ?? undefined) as OutcomeType | undefined,
     outcomeDetail: row.outcomeDetail ?? undefined,
     executedAt: row.executedAt,
-    completedAt: row.completedAt ?? undefined
+    completedAt: row.completedAt ?? undefined,
+    event: {
+      id: row.event.id,
+      merchantId: row.event.merchantId,
+      customerEmail: row.event.customerEmail ?? undefined,
+      customerPhone: row.event.customerPhone ?? undefined,
+      metadata: row.event.metadata as Record<string, unknown>,
+      detectedAt: row.event.detectedAt
+    }
   }))
 
   return { entries, total }
@@ -84,56 +109,105 @@ export async function getRecoveryMetrics(): Promise<{
   totalAtRisk: number
   totalRecovered: number
   recoveryRate: number
+  totalEvents: number
+  pendingActions: number
+  totalDecisions: number
+  avgConfidence: number
+  escalations: number
   byAgent: {
-    PaymentRetryAgent: { atRisk: number; recovered: number }
-    CheckoutNudgeAgent: { atRisk: number; recovered: number }
-    InvoiceCollectorAgent: { atRisk: number; recovered: number }
+    PaymentRetryAgent: { dispatched: number; recovered: number; successRate: number }
+    CheckoutNudgeAgent: { dispatched: number; recovered: number; successRate: number }
+    InvoiceCollectorAgent: { dispatched: number; recovered: number; successRate: number }
   }
   recentEvents: number
 }> {
   const entries = await prisma.auditEntry.findMany()
 
   const byAgent = {
-    PaymentRetryAgent: { atRisk: 0, recovered: 0 },
-    CheckoutNudgeAgent: { atRisk: 0, recovered: 0 },
-    InvoiceCollectorAgent: { atRisk: 0, recovered: 0 }
+    PaymentRetryAgent: { dispatched: 0, recovered: 0, successRate: 0 },
+    CheckoutNudgeAgent: { dispatched: 0, recovered: 0, successRate: 0 },
+    InvoiceCollectorAgent: { dispatched: 0, recovered: 0, successRate: 0 }
   }
 
   let totalAtRisk = 0
   let totalRecovered = 0
+  let pendingActions = 0
+  let escalations = 0
+  let confidenceSum = 0
+  let confidenceCount = 0
 
   for (const entry of entries) {
     totalAtRisk += entry.rupeeAtRisk
 
+    if (entry.confidence !== null && entry.confidence !== undefined) {
+      confidenceSum += entry.confidence
+      confidenceCount += 1
+    }
+
+    if (entry.status === 'ESCALATED' || entry.outcome === 'ESCALATED') {
+      escalations += 1
+    }
+
     const agentBucket = byAgent[entry.agentType as keyof typeof byAgent] as
-      | { atRisk: number; recovered: number }
+      | { dispatched: number; recovered: number; successRate: number }
       | undefined
 
     if (agentBucket) {
-      agentBucket.atRisk += entry.rupeeAtRisk
+      agentBucket.dispatched += 1
 
       if (entry.outcome === 'RECOVERED') {
-        agentBucket.recovered += entry.rupeeAtRisk
+        agentBucket.recovered += 1
       }
     }
 
     if (entry.outcome === 'RECOVERED') {
       totalRecovered += entry.rupeeAtRisk
     }
+
+    if (entry.status === 'PENDING' || entry.status === 'EXECUTING') {
+      pendingActions += 1
+    }
   }
 
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-  const recentEvents = await prisma.leakageEvent.count({
-    where: { detectedAt: { gte: oneDayAgo } }
-  })
+  for (const bucket of Object.values(byAgent)) {
+    bucket.successRate = bucket.dispatched > 0 ? bucket.recovered / bucket.dispatched : 0
+  }
+
+  const [totalEvents, recentEvents] = await Promise.all([
+    prisma.leakageEvent.count(),
+    prisma.leakageEvent.count({ where: { detectedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } } })
+  ])
 
   return {
     totalAtRisk,
     totalRecovered,
     recoveryRate: totalAtRisk > 0 ? totalRecovered / totalAtRisk : 0,
+    totalEvents,
+    pendingActions,
+    totalDecisions: entries.length,
+    avgConfidence: confidenceCount > 0 ? confidenceSum / confidenceCount : 0,
+    escalations,
     byAgent,
     recentEvents
   }
+}
+
+export async function getRecoveryTrend(days = 14): Promise<
+  Array<{ date: string; totalAtRisk: number; totalRecovered: number; recoveryRate: number }>
+> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+
+  const rows = await prisma.recoveryMetric.findMany({
+    where: { date: { gte: since } },
+    orderBy: { date: 'asc' }
+  })
+
+  return rows.map((row) => ({
+    date: row.date.toISOString(),
+    totalAtRisk: row.totalAtRisk,
+    totalRecovered: row.totalRecovered,
+    recoveryRate: row.recoveryRate
+  }))
 }
 
 // Rolls the outcome of one agent action into today's RecoveryMetric row —

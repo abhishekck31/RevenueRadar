@@ -2,6 +2,7 @@
   "name": "revenue-radar",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "npm@10.8.2",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -11,7 +12,11 @@
     "build": "turbo run build",
     "db:push": "turbo run db:push",
     "db:generate": "turbo run db:generate",
-    "db:studio": "prisma studio --schema=prisma/schema.prisma"
+    "db:studio": "prisma studio --schema=prisma/schema.prisma",
+    "db:seed": "node -r ./apps/api/node_modules/ts-node/register prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "node -r ./apps/api/node_modules/ts-node/register prisma/seed.ts"
   },
   "devDependencies": {
     "turbo": "^2.1.3"

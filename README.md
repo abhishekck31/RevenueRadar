@@ -6,7 +6,7 @@
 
 **Multi-agent AI system for revenue leakage detection and recovery**
 
-[Overview](#overview) · [How It Works](#how-it-works) · [Architecture](#architecture) · [Tech Stack](#tech-stack) · [Project Structure](#project-structure) · [Getting Started](#getting-started) · [Safety Bounds](#safety-bounds)
+[Overview](#overview) · [How It Works](#how-it-works) · [Architecture](#architecture) · [Tech Stack](#tech-stack) · [Project Structure](#project-structure) · [Quick Start](#quick-start) · [Safety Bounds](#safety-bounds)
 
 Built for the Razorpay AI Buildathon.
 
@@ -163,45 +163,38 @@ revenue-radar/
 
 ---
 
-## Getting Started
+## Quick Start
 
-### Prerequisites
-
-- Node.js 20 or higher
-- Docker (for PostgreSQL and Redis)
-- A Razorpay test-mode account
-- An Anthropic API key
-
-### Installation
+**Prerequisites:** Node.js 20+, Docker
 
 ```bash
-git clone https://github.com/abhishekck31/RevenueRadar.git
-cd RevenueRadar
-npm install
+# 1. Clone
+git clone https://github.com/abhishekck31/revenue-radar
+cd revenue-radar
+
+# 2. Setup (installs deps, starts DB, seeds data)
+make setup
+
+# 3. Add your API keys to .env
+# Required: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, ANTHROPIC_API_KEY
+# Optional for full demo: SMTP_*, TWILIO_*
+nano .env
+
+# 4. Start development
+make dev
+
+# Open:
+# Dashboard → http://localhost:3000
+# API       → http://localhost:3001
+# DB Studio → npx prisma studio
 ```
 
-### Configure environment
-
+**Or run everything in Docker:**
 ```bash
-cp .env.example .env
+make docker
 ```
 
-Fill in `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `ANTHROPIC_API_KEY`, and the notification (SMTP, Twilio) credentials.
-
-### Start infrastructure
-
-```bash
-docker compose up -d
-npm run db:push
-```
-
-### Run the app
-
-```bash
-npm run dev
-```
-
-The API starts on `localhost:3001`, the dashboard on `localhost:3000`.
+`make` not installed (e.g. on Windows without WSL)? Run the underlying commands directly — see the [Makefile](Makefile).
 
 ---
 

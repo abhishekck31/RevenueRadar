@@ -1,10 +1,8 @@
 import express, { Router, Request, Response } from 'express'
-import type { Prisma } from '@prisma/client'
 import { validateWebhookSignature } from '../services/razorpay'
 import { normalizeWebhookEvent } from '../normalizer'
-import { leakageEventsQueue } from '../queues'
+import { persistAndQueueEvent } from '../services/events'
 import { logger } from '../lib/logger'
-import { prisma } from '../lib/prisma'
 
 export const webhookRouter = Router()
 
@@ -46,22 +44,7 @@ webhookRouter.post('/razorpay', express.raw({ type: 'application/json' }), async
   }
 
   try {
-    await prisma.leakageEvent.create({
-      data: {
-        id: event.id,
-        type: event.type,
-        merchantId: event.merchantId,
-        rupeeAmount: event.rupeeAmount,
-        customerId: event.customerId,
-        customerEmail: event.customerEmail,
-        customerPhone: event.customerPhone,
-        metadata: event.metadata as Prisma.InputJsonValue,
-        rawPayload: event.rawWebhookPayload as Prisma.InputJsonValue,
-        detectedAt: event.detectedAt
-      }
-    })
-
-    await leakageEventsQueue.add('leakage-event', event, { jobId: event.id })
+    await persistAndQueueEvent(event)
 
     res.status(200).json({ status: 'queued', eventId: event.id })
   } catch (err) {

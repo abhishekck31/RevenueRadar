@@ -10,6 +10,7 @@ import { logger } from './lib/logger'
 import { webhookRouter } from './routes/webhook'
 import { eventsRouter } from './routes/events'
 import { auditRouter, metricsRouter } from './routes/audit'
+import { simulateRouter } from './routes/simulate'
 import { errorHandler } from './middleware/error-handler'
 import { startWorkers, setSocketIO } from './queues/workers'
 
@@ -45,6 +46,7 @@ app.use(express.json())
 app.use('/api/events', eventsRouter)
 app.use('/api/audit', auditRouter)
 app.use('/api/metrics', metricsRouter)
+app.use('/api', simulateRouter)
 
 app.use(errorHandler)
 

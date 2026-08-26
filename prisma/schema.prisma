@@ -29,6 +29,9 @@ model AuditEntry {
   actionTaken   String
   reasoning     String
   rupeeAtRisk   Float
+  confidence    Float?
+  triageScore   Float?
+  priority      String?
   status        String
   outcome       String?
   outcomeDetail String?

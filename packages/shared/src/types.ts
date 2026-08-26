@@ -37,6 +37,9 @@ export interface AuditEntry {
   actionTaken: string
   reasoning: string
   rupeeAtRisk: number
+  confidence?: number
+  triageScore?: number
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW'
   status: ActionStatus
   outcome?: OutcomeType
   outcomeDetail?: string
