@@ -1,4 +1,4 @@
-<div align="center">
+<div align="center"> 
 
 <img src="https://razorpay.com/favicon.ico" width="40" height="40" alt="Razorpay" />
 
