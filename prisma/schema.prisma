@@ -19,6 +19,12 @@ model LeakageEvent {
   rawPayload      Json
   detectedAt      DateTime     @default(now())
   auditEntries    AuditEntry[]
+
+  // The dashboard sorts the event feed by detectedAt and filters by type;
+  // metrics count per merchant. Without these every read is a sequential scan.
+  @@index([merchantId])
+  @@index([type])
+  @@index([detectedAt])
 }
 
 model AuditEntry {
@@ -37,6 +43,13 @@ model AuditEntry {
   outcomeDetail String?
   executedAt    DateTime     @default(now())
   completedAt   DateTime?
+
+  // eventId drives the stopping-rule lookups on every agent run, so it is the
+  // hottest of these by far; the rest back the audit page's filters and sort.
+  @@index([eventId])
+  @@index([agentType])
+  @@index([status])
+  @@index([executedAt])
 }
 
 model RecoveryMetric {
@@ -48,4 +61,6 @@ model RecoveryMetric {
   nudgesSent         Int
   invoicesFollowedUp Int
   recoveryRate       Float
+
+  @@index([date])
 }
