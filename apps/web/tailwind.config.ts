@@ -10,6 +10,10 @@ const config: Config = {
       },
       colors: {
         rzp: {
+          ink: '#0A0F1E',
+          purple: '#7C3AED',
+          'purple-bg': '#F3E8FF',
+          gold: '#FFB800',
           blue: '#2B5CE6',
           'blue-light': '#E8EFFE',
           'blue-mid': '#5C7CFA',
@@ -39,6 +43,30 @@ const config: Config = {
       },
       borderRadius: {
         rzp: '8px'
+      },
+      animation: {
+        'fade-up': 'fade-up 0.5s ease forwards',
+        'fade-in': 'fade-in 0.4s ease forwards',
+        'slide-in-right': 'slide-in-right 0.3s ease forwards',
+        'pipeline-step': 'pipeline-step 0.4s ease forwards'
+      },
+      keyframes: {
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(16px)' },
+          to: { opacity: '1', transform: 'translateY(0)' }
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' }
+        },
+        'slide-in-right': {
+          from: { opacity: '0', transform: 'translateX(12px)' },
+          to: { opacity: '1', transform: 'translateX(0)' }
+        },
+        'pipeline-step': {
+          from: { opacity: '0', transform: 'scale(0.8)' },
+          to: { opacity: '1', transform: 'scale(1)' }
+        }
       }
     }
   },

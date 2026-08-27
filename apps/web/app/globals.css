@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800;900&family=Roboto+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 
@@ -30,6 +30,10 @@
   --rzp-danger-bg: #FEE2E2;
   --rzp-pending: #1D4ED8;
   --rzp-pending-bg: #DBEAFE;
+  --rzp-purple: #7C3AED;
+  --rzp-purple-bg: #F3E8FF;
+  --rzp-ink: #0A0F1E;
+  --rzp-gold: #FFB800;
   --shadow-low: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow-mid: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
   --shadow-high: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
@@ -72,7 +76,69 @@ body {
   50% { opacity: 0.35; }
 }
 
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes scan-line {
+  0% { left: -60%; }
+  100% { left: 120%; }
+}
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* --target-width is set inline per bar so one keyframe drives every progress fill. */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: var(--target-width, 0%); }
+}
+@keyframes pipeline-step {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
 .animate-slide-in { animation: slide-in 0.25s ease forwards; }
+.animate-fade-up { animation: fade-up 0.5s ease forwards; }
+.animate-fade-in { animation: fade-in 0.4s ease forwards; }
+.animate-slide-in-right { animation: slide-in-right 0.3s ease forwards; }
+.animate-count-up { animation: count-up 0.35s ease forwards; }
+.animate-pipeline-step { animation: pipeline-step 0.4s ease forwards; }
+.animate-progress-fill { animation: progress-fill 0.8s ease forwards; }
+
+/* Stagger helpers — each starts hidden so the delay reads as a real entrance. */
+.delay-1 { animation-delay: 0.06s; opacity: 0; }
+.delay-2 { animation-delay: 0.12s; opacity: 0; }
+.delay-3 { animation-delay: 0.18s; opacity: 0; }
+.delay-4 { animation-delay: 0.24s; opacity: 0; }
+.delay-5 { animation-delay: 0.30s; opacity: 0; }
+.delay-6 { animation-delay: 0.36s; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-slide-in-right,
+  .animate-count-up,
+  .animate-pipeline-step,
+  .animate-progress-fill,
+  .delay-1, .delay-2, .delay-3, .delay-4, .delay-5, .delay-6 {
+    animation: none;
+    opacity: 1;
+  }
+}
 .animate-pulse-ring { animation: pulse-ring 2s infinite; }
 .animate-dot-pulse { animation: dot-pulse 1.6s ease-in-out infinite; }
 
@@ -193,5 +259,99 @@ body {
 }
 .rzp-table tbody tr:hover td { background: #FAFAFA; }
 .rzp-table tbody tr:last-child td { border-bottom: none; }
+
+
+/* ── Landing page ───────────────────────────────────────────────
+   Only the pieces Tailwind can't express cleanly live here: the
+   background-clip gradient text, the dot grid, and the scan sweep. */
+
+.landing-dark {
+  background: var(--rzp-ink);
+  color: #FFFFFF;
+}
+
+/* Faint blue dot grid, fading out toward the edges of the hero. */
+.dot-grid {
+  background-image: radial-gradient(rgba(92, 124, 250, 0.18) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+}
+
+.scan-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, rgba(92, 124, 250, 0.16), transparent);
+  animation: scan-line 7s linear infinite;
+  pointer-events: none;
+}
+
+.text-shimmer {
+  background: linear-gradient(135deg, #2B5CE6 0%, #5C7CFA 45%, #A5B8FF 60%, #5C7CFA 80%, #2B5CE6 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer-pan 5s ease-in-out infinite;
+}
+
+.btn-hero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: 'Mulish', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.btn-hero-primary {
+  background: var(--rzp-blue);
+  color: #FFFFFF;
+  border: 1px solid var(--rzp-blue);
+}
+.btn-hero-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(43, 92, 230, 0.4);
+  background: var(--rzp-blue-mid);
+}
+.btn-hero-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.btn-hero-ghost:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
+}
+
+/* Agent feature card — lifts to a blue edge on hover. */
+.agent-card {
+  background: #FFFFFF;
+  border: 1px solid var(--rzp-border);
+  border-radius: 12px;
+  padding: 22px;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.agent-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(43, 92, 230, 0.45);
+  box-shadow: 0 12px 28px -8px rgba(43, 92, 230, 0.28);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-line,
+  .text-shimmer { animation: none; }
+  .agent-card:hover,
+  .btn-hero:hover { transform: none; }
+}
 
 @tailwind utilities;
