@@ -65,13 +65,16 @@ export function Sidebar() {
         </nav>
 
         <div className="p-4">
-          <div className="rounded-md bg-white/[0.05] p-3">
+          <Link
+            href="/landing"
+            className="block rounded-md border border-rzp-blue/20 bg-rzp-blue/[0.12] p-3 transition-colors hover:bg-rzp-blue/20"
+          >
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 animate-dot-pulse rounded-full bg-rzp-blue" />
-              <p className="text-[11px] font-semibold text-white/70">Razorpay AI Buildathon</p>
+              <p className="text-[11px] font-bold text-white">AI Revenue Recovery</p>
             </div>
-            <p className="mt-1 pl-3.5 text-[10px] text-white/40">AI Revenue Recovery Track</p>
-          </div>
+            <p className="mt-1 pl-3.5 text-[10px] text-white/45">Razorpay Buildathon &middot; view landing</p>
+          </Link>
         </div>
       </aside>
 
