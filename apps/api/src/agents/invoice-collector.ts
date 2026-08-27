@@ -3,17 +3,18 @@ import { STOPPING_RULES } from '@revenue-radar/shared'
 import { createPaymentLink } from '../services/razorpay'
 import { sendEmail, sendWhatsApp, generateRecoveryEmail, generateWhatsAppMessage } from '../services/notification'
 import { createTriageAudit, updateAuditOutcome } from '../services/audit'
-import { countAgentAttempts } from '../lib/stopping-rules'
+import { countAgentAttempts, checkAgentPreconditions } from '../lib/stopping-rules'
 import { logger } from '../lib/logger'
 
 export class InvoiceCollectorAgent {
   async execute(event: LeakageEvent, triage: TriageResult): Promise<OutcomeType> {
-    const followUpCount = await this.getFollowUpCount(event.id)
+    const blocked = await checkAgentPreconditions(event, 'InvoiceCollectorAgent', {
+      maxAttempts: STOPPING_RULES.INVOICE_FOLLOWUP.maxFollowups
+    })
 
-    if (followUpCount >= STOPPING_RULES.INVOICE_FOLLOWUP.maxFollowups) {
-      logger.info(`Max follow-ups reached for invoice ${event.id}`)
-      return 'STOPPED'
-    }
+    if (blocked) return blocked
+
+    const followUpCount = await this.getFollowUpCount(event.id)
 
     const forcedEscalation = followUpCount >= STOPPING_RULES.INVOICE_FOLLOWUP.escalateAfter
     const action = forcedEscalation ? 'ESCALATE_HUMAN' : triage.action

@@ -3,18 +3,21 @@ import { STOPPING_RULES } from '@revenue-radar/shared'
 import { fetchPayment, createPaymentLink } from '../services/razorpay'
 import { sendEmail, sendWhatsApp, generateRecoveryEmail, generateWhatsAppMessage } from '../services/notification'
 import { createTriageAudit, updateAuditOutcome } from '../services/audit'
-import { countAgentAttempts } from '../lib/stopping-rules'
+import { checkAgentPreconditions } from '../lib/stopping-rules'
 import { logger } from '../lib/logger'
 import { env } from '../config/env'
 
 export class PaymentRetryAgent {
   async execute(event: LeakageEvent, triage: TriageResult): Promise<OutcomeType> {
-    const attempts = await countAgentAttempts(event.id, 'PaymentRetryAgent')
+    // CLAUDE.md sets a 30-minute floor between retries; it was declared in
+    // STOPPING_RULES but never enforced here, so a requeued job could retry a
+    // card immediately and trip issuer velocity limits.
+    const blocked = await checkAgentPreconditions(event, 'PaymentRetryAgent', {
+      maxAttempts: STOPPING_RULES.PAYMENT_RETRY.maxRetries,
+      cooldownMs: STOPPING_RULES.PAYMENT_RETRY.cooldownMinutes * 60 * 1000
+    })
 
-    if (attempts >= STOPPING_RULES.PAYMENT_RETRY.maxRetries) {
-      logger.info(`Max retries reached for payment ${event.metadata.paymentId ?? event.id}`)
-      return 'STOPPED'
-    }
+    if (blocked) return blocked
 
     const auditId = await createTriageAudit(event, triage, 'EXECUTING')
 

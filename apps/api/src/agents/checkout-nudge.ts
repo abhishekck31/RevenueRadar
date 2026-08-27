@@ -3,32 +3,29 @@ import { STOPPING_RULES } from '@revenue-radar/shared'
 import { createPaymentLink } from '../services/razorpay'
 import { sendEmail, sendWhatsApp, generateRecoveryEmail, generateWhatsAppMessage } from '../services/notification'
 import { createTriageAudit, updateAuditOutcome } from '../services/audit'
-import { countAgentAttempts, getLastAttemptAt } from '../lib/stopping-rules'
+import { checkAgentPreconditions } from '../lib/stopping-rules'
 import { logger } from '../lib/logger'
 
 export class CheckoutNudgeAgent {
   async execute(event: LeakageEvent, triage: TriageResult): Promise<OutcomeType> {
-    const attempts = await countAgentAttempts(event.id, 'CheckoutNudgeAgent')
+    const blocked = await checkAgentPreconditions(event, 'CheckoutNudgeAgent', {
+      maxAttempts: STOPPING_RULES.CHECKOUT_NUDGE.maxNudges,
+      cooldownMs: STOPPING_RULES.CHECKOUT_NUDGE.cooldownHours * 60 * 60 * 1000
+    })
 
-    if (attempts >= STOPPING_RULES.CHECKOUT_NUDGE.maxNudges) {
-      logger.info(`Max nudges reached for checkout ${event.id}`)
-      return 'STOPPED'
-    }
-
-    const lastAttemptAt = await getLastAttemptAt(event.id, 'CheckoutNudgeAgent')
-    if (lastAttemptAt) {
-      const cooldownMs = STOPPING_RULES.CHECKOUT_NUDGE.cooldownHours * 60 * 60 * 1000
-      if (Date.now() - lastAttemptAt.getTime() < cooldownMs) {
-        logger.info(`Nudge cooldown active for checkout ${event.id}`)
-        return 'STOPPED'
-      }
-    }
+    if (blocked) return blocked
 
     const auditId = await createTriageAudit(event, triage, 'EXECUTING')
 
     try {
       switch (triage.action) {
         case 'SEND_EMAIL_NUDGE': {
+          if (!event.customerEmail) {
+            logger.warn(`[CheckoutNudgeAgent] no email on event ${event.id} — cannot send email nudge`)
+            await updateAuditOutcome(auditId, 'FAILED', 'No email address available', new Date())
+            return 'FAILED'
+          }
+
           const link = await this.createNudgeLink(event)
           const email = await generateRecoveryEmail({
             type: 'checkout_abandoned',
@@ -36,38 +33,56 @@ export class CheckoutNudgeAgent {
             merchantName: event.merchantId,
             paymentLink: link
           })
-          await sendEmail({ to: event.customerEmail!, subject: email.subject, html: email.html, text: email.text })
+          await sendEmail({ to: event.customerEmail, subject: email.subject, html: email.html, text: email.text })
           break
         }
 
         case 'SEND_WHATSAPP_NUDGE': {
+          if (!event.customerPhone) {
+            logger.warn(`[CheckoutNudgeAgent] no phone on event ${event.id} — cannot send WhatsApp nudge`)
+            await updateAuditOutcome(auditId, 'FAILED', 'No phone number available', new Date())
+            return 'FAILED'
+          }
+
           const link = await this.createNudgeLink(event)
           const message = await generateWhatsAppMessage({
             type: 'checkout_abandoned',
             rupeeAmount: event.rupeeAmount,
             paymentLink: link
           })
-          await sendWhatsApp({ to: event.customerPhone!, message })
+          await sendWhatsApp({ to: event.customerPhone, message })
           break
         }
 
         case 'SEND_BOTH': {
+          if (!event.customerEmail && !event.customerPhone) {
+            logger.warn(`[CheckoutNudgeAgent] no contact details on event ${event.id}`)
+            await updateAuditOutcome(auditId, 'FAILED', 'No contact information available', new Date())
+            return 'FAILED'
+          }
+
           const link = await this.createNudgeLink(event)
 
-          const email = await generateRecoveryEmail({
-            type: 'checkout_abandoned',
-            rupeeAmount: event.rupeeAmount,
-            merchantName: event.merchantId,
-            paymentLink: link
-          })
-          await sendEmail({ to: event.customerEmail!, subject: email.subject, html: email.html, text: email.text })
+          // Send on whichever channels this customer actually has, rather than
+          // asserting both are present and throwing inside the mail transport.
+          if (event.customerEmail) {
+            const email = await generateRecoveryEmail({
+              type: 'checkout_abandoned',
+              rupeeAmount: event.rupeeAmount,
+              merchantName: event.merchantId,
+              paymentLink: link
+            })
+            await sendEmail({ to: event.customerEmail, subject: email.subject, html: email.html, text: email.text })
+          }
 
-          const message = await generateWhatsAppMessage({
-            type: 'checkout_abandoned',
-            rupeeAmount: event.rupeeAmount,
-            paymentLink: link
-          })
-          await sendWhatsApp({ to: event.customerPhone!, message })
+          if (event.customerPhone) {
+            const message = await generateWhatsAppMessage({
+              type: 'checkout_abandoned',
+              rupeeAmount: event.rupeeAmount,
+              paymentLink: link
+            })
+            await sendWhatsApp({ to: event.customerPhone, message })
+          }
           break
         }
 
