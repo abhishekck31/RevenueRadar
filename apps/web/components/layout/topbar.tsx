@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { getSocket } from '../../lib/socket'
+import { getSocket } from '@/lib/socket'
 
 const PAGE_TITLES: Array<{ href: string; title: string }> = [
   { href: '/events', title: 'Live Events' },

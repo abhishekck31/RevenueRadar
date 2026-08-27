@@ -1,6 +1,4 @@
 import type { Metadata } from 'next'
-import { Sidebar } from '../components/layout/sidebar'
-import { TopBar } from '../components/layout/topbar'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -8,16 +6,12 @@ export const metadata: Metadata = {
   description: 'Multi-agent revenue leakage detection and recovery'
 }
 
+// Root layout stays chrome-free: the dashboard sidebar/topbar live in the
+// (dashboard) route group so /landing can render edge to edge.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-rzp-surface font-sans text-rzp-text antialiased">
-        <Sidebar />
-        <div className="min-h-screen pb-14 md:ml-[240px] md:pb-0">
-          <TopBar />
-          <main className="p-6">{children}</main>
-        </div>
-      </body>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   )
 }
