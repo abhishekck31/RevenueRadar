@@ -29,12 +29,24 @@ interface RazorpayOrder {
   attempts: number
 }
 
-export function validateWebhookSignature(rawBody: string, signature: string): boolean {
+/**
+ * Verifies the Razorpay HMAC over the exact bytes received.
+ *
+ * Takes the raw Buffer rather than a decoded string: re-encoding a body that
+ * isn't valid UTF-8 substitutes replacement characters, which would change the
+ * digest and reject a legitimate event. Comparison is constant-time so a
+ * caller can't recover the expected signature byte by byte from response
+ * timing.
+ */
+export function validateWebhookSignature(rawBody: Buffer, signature: string): boolean {
   const expectedSignature = crypto.createHmac('sha256', env.RAZORPAY_WEBHOOK_SECRET).update(rawBody).digest('hex')
 
   const expectedBuffer = Buffer.from(expectedSignature, 'utf8')
   const providedBuffer = Buffer.from(signature, 'utf8')
 
+  // timingSafeEqual throws on length mismatch, so this guard has to come first.
+  // The length of an HMAC-SHA256 hex digest is fixed and public, so leaking it
+  // through an early return costs nothing.
   if (expectedBuffer.length !== providedBuffer.length) {
     return false
   }
