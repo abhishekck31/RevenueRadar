@@ -3,23 +3,21 @@ import { z } from 'zod'
 import { normalizeWebhookEvent } from '../normalizer'
 import { persistAndQueueEvent } from '../services/events'
 import { logger } from '../lib/logger'
+import { simulateBodySchema } from '../lib/validation'
 
 export const simulateRouter = Router()
 
 const DEMO_MERCHANT_ID = 'merchant_demo'
 
-const simulateSchema = z.object({
-  type: z.enum(['payment_failed', 'checkout_abandoned', 'invoice_overdue']),
-  data: z.record(z.unknown()).default({})
-})
-
 function buildWebhookPayload(
-  type: z.infer<typeof simulateSchema>['type'],
-  data: Record<string, unknown>
+  type: z.infer<typeof simulateBodySchema>['type'],
+  data: z.infer<typeof simulateBodySchema>['data']
 ): { eventName: string; payload: Record<string, unknown> } {
-  const amountPaise = Math.round(Number(data.amount ?? 0) * 100)
-  const customerEmail = typeof data.customerEmail === 'string' ? data.customerEmail : undefined
-  const customerPhone = typeof data.customerPhone === 'string' ? data.customerPhone : undefined
+  // The schema already guarantees a positive, bounded amount and well-formed
+  // contact details, so no defensive coercion is needed here.
+  const amountPaise = Math.round(data.amount * 100)
+  const customerEmail = data.customerEmail
+  const customerPhone = data.customerPhone
   const entityId = `sim_${Date.now()}`
 
   switch (type) {
@@ -34,8 +32,8 @@ function buildWebhookPayload(
               order_id: `order_sim_${Date.now()}`,
               email: customerEmail,
               contact: customerPhone,
-              error_code: typeof data.errorType === 'string' ? data.errorType : 'GATEWAY_ERROR',
-              error_reason: typeof data.errorType === 'string' ? data.errorType : 'GATEWAY_ERROR',
+              error_code: data.errorType ?? 'GATEWAY_ERROR',
+              error_reason: data.errorType ?? 'GATEWAY_ERROR',
               attempts: 1
             }
           }
@@ -65,8 +63,8 @@ function buildWebhookPayload(
             entity: {
               id: entityId,
               amount_due: amountPaise,
-              invoice_number: typeof data.invoiceNumber === 'string' ? data.invoiceNumber : `INV-${Date.now()}`,
-              date: typeof data.dueDate === 'string' ? data.dueDate : new Date().toISOString(),
+              invoice_number: data.invoiceNumber ?? `INV-${Date.now()}`,
+              date: data.dueDate ?? new Date().toISOString(),
               customer_details: { email: customerEmail, contact: customerPhone }
             }
           }
@@ -77,13 +75,20 @@ function buildWebhookPayload(
 
 simulateRouter.post('/simulate', async (req, res, next) => {
   try {
-    const parsed = simulateSchema.parse(req.body)
+    const parsed = simulateBodySchema.parse(req.body)
     const { eventName, payload } = buildWebhookPayload(parsed.type, parsed.data)
 
     const event = normalizeWebhookEvent(eventName, payload, DEMO_MERCHANT_ID)
 
     if (!event) {
       res.status(400).json({ error: 'Failed to normalize simulated event' })
+      return
+    }
+
+    // Belt and braces: the schema bounds the amount, but normalization derives
+    // the final rupee value and must never queue a zero or negative event.
+    if (!Number.isFinite(event.rupeeAmount) || event.rupeeAmount <= 0) {
+      res.status(400).json({ error: 'Event amount must be greater than zero' })
       return
     }
 

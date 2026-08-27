@@ -1,7 +1,7 @@
 import express, { Router, Request, Response } from 'express'
 import { validateWebhookSignature } from '../services/razorpay'
 import { normalizeWebhookEvent } from '../normalizer'
-import { persistAndQueueEvent } from '../services/events'
+import { persistAndQueueEvent, InvalidEventError } from '../services/events'
 import { logger } from '../lib/logger'
 
 export const webhookRouter = Router()
@@ -59,6 +59,14 @@ webhookRouter.post(
 
       res.status(200).json({ status: 'queued', eventId: event.id })
     } catch (err) {
+      // A malformed event will never become valid, so acknowledge it rather
+      // than returning an error Razorpay would retry indefinitely.
+      if (err instanceof InvalidEventError) {
+        logger.warn(`[webhook] discarded unusable event: ${err.message}`)
+        res.status(200).json({ status: 'ignored' })
+        return
+      }
+
       logger.error(err instanceof Error ? err : new Error(String(err)))
       res.status(500).json({ error: 'Failed to process webhook event' })
     }

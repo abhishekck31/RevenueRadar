@@ -1,15 +1,14 @@
 import { Router } from 'express'
 import { getAuditEntries, getRecoveryMetrics, getRecoveryTrend } from '../services/audit'
+import { auditQuerySchema, trendQuerySchema } from '../lib/validation'
 
 export const auditRouter = Router()
 export const metricsRouter = Router()
 
 auditRouter.get('/', async (req, res, next) => {
   try {
-    const page = Math.max(1, Number(req.query.page) || 1)
-    const limit = Math.max(1, Number(req.query.limit) || 20)
-    const agentType = typeof req.query.agentType === 'string' && req.query.agentType ? req.query.agentType : undefined
-    const outcome = typeof req.query.outcome === 'string' && req.query.outcome ? req.query.outcome : undefined
+    // Unbounded `limit` previously let one request pull the whole audit table.
+    const { page, limit, agentType, outcome } = auditQuerySchema.parse(req.query)
 
     const result = await getAuditEntries({ page, limit, agentType, outcome })
     res.json(result)
@@ -29,7 +28,7 @@ metricsRouter.get('/', async (_req, res, next) => {
 
 metricsRouter.get('/trend', async (req, res, next) => {
   try {
-    const days = Math.max(1, Math.min(90, Number(req.query.days) || 14))
+    const { days } = trendQuerySchema.parse(req.query)
     const trend = await getRecoveryTrend(days)
     res.json({ trend })
   } catch (err) {
