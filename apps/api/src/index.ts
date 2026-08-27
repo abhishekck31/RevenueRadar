@@ -102,6 +102,9 @@ setSocketIO(io)
 startWorkers()
 
 httpServer.listen(env.PORT, () => {
+  // Deliberate: a startup banner belongs on stdout unadorned, not wrapped in a
+  // timestamped log line. It carries no request or credential data.
+  // eslint-disable-next-line no-console
   console.log(`
   ██████╗ ███████╗██╗   ██╗███████╗███╗   ██╗██╗   ██╗███████╗
   ██╔══██╗██╔════╝██║   ██║██╔════╝████╗  ██║██║   ██║██╔════╝

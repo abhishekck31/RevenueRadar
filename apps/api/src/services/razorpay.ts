@@ -69,8 +69,8 @@ export async function createPaymentLink(params: {
   currency: string
   customerId: string
   description: string
-  customerEmail?: string
-  customerPhone?: string
+  customerEmail?: string | undefined
+  customerPhone?: string | undefined
 }): Promise<{ id: string; short_url: string }> {
   const paymentLink = await razorpayClient.paymentLink.create({
     amount: Math.round(params.amount * 100),

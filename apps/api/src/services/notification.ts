@@ -64,9 +64,9 @@ export async function generateRecoveryEmail(params: {
   type: 'payment_failed' | 'checkout_abandoned' | 'invoice_overdue'
   rupeeAmount: number
   merchantName: string
-  paymentLink?: string
-  invoiceNumber?: string
-  dueDate?: string
+  paymentLink?: string | undefined
+  invoiceNumber?: string | undefined
+  dueDate?: string | undefined
 }): Promise<{ subject: string; html: string; text: string }> {
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-6',
@@ -98,7 +98,7 @@ Respond with plain text only — no JSON, no markdown.
 export async function generateWhatsAppMessage(params: {
   type: 'payment_failed' | 'checkout_abandoned' | 'invoice_overdue'
   rupeeAmount: number
-  paymentLink?: string
+  paymentLink?: string | undefined
 }): Promise<string> {
   const response = await claude.messages.create({
     model: 'claude-sonnet-4-6',

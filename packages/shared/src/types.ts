@@ -8,9 +8,9 @@ export interface LeakageEvent {
   type: LeakageType
   merchantId: string
   rupeeAmount: number
-  customerId?: string
-  customerEmail?: string
-  customerPhone?: string
+  customerId?: string | undefined
+  customerEmail?: string | undefined
+  customerPhone?: string | undefined
   metadata: Record<string, unknown>
   detectedAt: Date
   rawWebhookPayload: Record<string, unknown>
@@ -26,7 +26,7 @@ export interface TriageResult {
   priority: 'HIGH' | 'MEDIUM' | 'LOW'
   recoveryProbability: number
   score: number
-  suggestedRetryAt?: string
+  suggestedRetryAt?: string | undefined
 }
 
 export interface AuditEntry {
@@ -37,12 +37,12 @@ export interface AuditEntry {
   actionTaken: string
   reasoning: string
   rupeeAtRisk: number
-  confidence?: number
-  triageScore?: number
-  priority?: 'HIGH' | 'MEDIUM' | 'LOW'
+  confidence?: number | undefined
+  triageScore?: number | undefined
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW' | undefined
   status: ActionStatus
-  outcome?: OutcomeType
-  outcomeDetail?: string
+  outcome?: OutcomeType | undefined
+  outcomeDetail?: string | undefined
   executedAt: Date
-  completedAt?: Date
+  completedAt?: Date | undefined
 }

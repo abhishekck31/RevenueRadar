@@ -449,7 +449,9 @@ function InvoiceOverdueCard({ onFire, firing }: { onFire: FireFn; firing: boolea
   const [amount, setAmount] = useState(24999)
   const [invoiceNumber, setInvoiceNumber] = useState('INV-2024-001')
   const [email, setEmail] = useState('test@example.com')
-  const [phone, setPhone] = useState('+919999999999')
+  // This card shows a Due Date field where the others show a phone input, so
+  // the number is a fixed demo value rather than editable state.
+  const phone = '+919999999999'
   const [dueDate, setDueDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   return (
